@@ -11,16 +11,19 @@ phase plan, and ground rules; [`PLAN.md`](PLAN.md) tracks the current phase.
 
 ## Current status
 
-**Phase 2 — observations ingestion complete.** GEFS ensemble ingestion (Phase 1)
-and observed-daily-high ingestion (Phase 2) both work. No fair-value model,
-backtester, or Kalshi order-book logging yet — those are Phases 3–7.
+**Phase 3 — fair-value engine complete.** GEFS ingestion, observations
+ingestion, and the bias-corrected fair-value model all work. No backtester,
+calibration harness, or Kalshi order-book logging yet — those are Phases 4–7.
 
 Data pipeline so far (each reproducible from one command):
 
 ```sh
-python scripts/ingest_gefs.py --latest          # GEFS ensemble -> data/ensemble/
-python scripts/ingest_observations.py            # observed highs -> data/observations/
-python scripts/fetch_kalshi_rules.py             # re-verify Kalshi resolution rules
+python scripts/ingest_gefs.py --latest           # GEFS ensemble -> data/ensemble/
+python scripts/ingest_observations.py             # observed highs -> data/observations/
+python scripts/fetch_kalshi_rules.py              # re-verify Kalshi resolution rules
+python scripts/backfill_gefs.py                   # 1yr GEFS history (bias training set)
+python scripts/fit_bias.py                        # fit per-station/season bias model
+python scripts/compare_fairvalue.py               # fair value vs. live Kalshi markets
 ```
 
 ## Requirements

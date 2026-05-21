@@ -8,116 +8,128 @@ full brief.
 
 ## Current status
 
-- **Phase:** 2 — Observations ingestion (ground truth)
-- **State:** ✅ Built and verified. 🛑 Awaiting Checkpoint-2 sign-off before
-  starting Phase 3.
+- **Phase:** 3 — Fair-value engine
+- **State:** ✅ Built and verified. 🛑 Awaiting Checkpoint-3 sign-off before
+  starting Phase 4.
+
+### Decisions on the Phase 3 open questions
+1. **Backfill scope:** 1 year of GEFS history, one run per week (~52 runs,
+   ~80 min background job) — every calendar day covered once, ~90 pairs per
+   season per station.
+2. **Distribution:** Gaussian fit — fit `N(mean, std)` to the 31 bias-corrected
+   members; `P(bucket) = Φ(hi) − Φ(lo)`. Phase 6 calibration can revisit.
 
 ---
 
-## Phase 2 plan — Observations ingestion (ground truth)
+## Phase 3 plan — Fair-value engine
 
 ### Goal
-Pull historical observed daily high temperatures for all 20 stations **from the
-exact source Kalshi settles on**, and write a Parquet table of
-`(station, date, observed_high)`. Also: read each city's *live* Kalshi contract
-rules and lock the resolution details into `config.yaml`. The brief calls
-resolution-rule mismatch the **#1 source of fake edges** — this phase exists to
-shut that trap.
+Turn a GEFS ensemble slice into a **probability per Kalshi bucket** for a
+station's daily high — bias-corrected and calibration-ready. Definition of done:
+given a real ensemble slice and a set of buckets, output a probability vector
+that sums to ~1; and show fair value next to real Kalshi prices at Checkpoint 3.
 
-### What we confirmed about Kalshi settlement (research done while planning)
-- Kalshi temperature markets settle on the **NWS Climatological Report (Daily)**
-  — the "CLI" product — for a **specific named station**. Verified from the live
-  `KXHIGHNY` market rules: *"the highest temperature recorded in Central Park,
-  New York … as reported by the National Weather Service's Climatological Report
-  (Daily)."*
-- Day window: midnight–midnight **local standard time** (during DST the CLI day
-  runs 1:00 AM–12:59 AM the next day). The CLI report already encodes this — by
-  ingesting the CLI `high` we inherit Kalshi's exact day definition for free.
-- Kalshi's secondary rules explicitly warn that *preliminary* CLI data is
-  subject to rounding/conversion nuances and later revision.
+### The pipeline (ensemble slice → bucket probabilities)
+1. **Per-member daily high.** For each of the 31 members, take the max of its
+   3-hourly `temp_2m_f` trace over the **target local day**. The day window
+   must match Kalshi's CLI day: local midnight–midnight *standard* time (LST,
+   year-round — Kalshi uses LST even during DST). → 31 raw daily-high values.
+2. **Bias correction.** Apply a per-station, per-season correction (fit in this
+   phase) to the 31 values. This absorbs systematic GEFS error, including the
+   slight low bias from sampling a continuous max at 3-hour steps.
+3. **Distribution → buckets.** Build a smoothed daily-high distribution from the
+   31 bias-corrected members and integrate it over each bucket:
+   `P(bucket [lo,hi)) = CDF(hi) − CDF(lo)`.
 
-### Data source — decided
-- **IEM (Iowa Environmental Mesonet) CLI archive:**
-  `https://mesonet.agron.iastate.edu/json/cli.py?station=<ID>&fmt=json` —
-  confirmed to return parsed CLI records with a Fahrenheit `high` field plus
-  `high_time`. This is the *same* NWS CLI product Kalshi settles on, so it is
-  the faithful historical source. (Phase 2 verifies the exact date-range query
-  params, the way Phase 1 verified cfgrib.)
-- `api.weather.gov` (the brief's suggestion) is reserved for **Phase 7**
-  settlement-day pulls — it serves recent CLI products but not deep history.
-- GHCN-Daily TMAX was considered as a cross-check and **dropped**: it would only
-  measure GHCN's agreement with CLI, not validate CLI. CLI *is* the settlement
-  ground truth by definition.
+The ensemble *spread* carries the lead-time-dependent uncertainty naturally
+(longer lead → members disagree more → wider distribution). The bias model only
+corrects the systematic *level*. Whether the spread is well-calibrated is
+measured in Phase 6 — if not, we revisit.
+
+### Prerequisite: a GEFS history backfill
+Bias correction needs historical `(forecast, observed)` pairs, and so far we
+have only one live GEFS run. Phase 3 therefore starts with a bounded backfill:
+ingest one GEFS run per week over the chosen window (each run's 7-day forecast
+tiles the calendar), reusing Phase 1's `ingest_run`. Scope is a human decision
+(see questions below) — it is a one-time background job.
 
 ### Files to create / change
 
 | File | Purpose |
 |---|---|
-| `src/ingest/observations.py` | Fetch + normalize CLI daily highs |
-| `scripts/ingest_observations.py` | CLI entry point for the backfill |
-| `scripts/fetch_kalshi_rules.py` | Read-only research helper: pulls live Kalshi temp-market rules for all 20 cities, prints the settlement station/source, flags config mismatches. **Self-contained — not the Phase 4 logging system.** |
-| `tests/test_observations.py` (+ `tests/fixtures/sample_cli.json`) | Offline unit tests |
-| `config.yaml` | Fill in `resolution_station` / `resolution_notes` |
-| `README.md` | Document the resolution assumptions explicitly |
+| `src/model/daily_high.py` | Local-day windowing → 31 per-member daily highs from an ensemble slice. Shared by bias fitting and fair value. |
+| `src/model/bias.py` | Build training pairs (ensemble daily-highs ⨝ observations), fit per-station/per-season linear regression `observed ≈ a + b·raw`, persist + apply. |
+| `src/model/fairvalue.py` | Pure function: `(ensemble slice, station, date, buckets, bias_model) → {bucket: probability}`. |
+| `scripts/backfill_gefs.py` | Loop `ingest_run` over historical dates (the backfill). |
+| `scripts/fit_bias.py` | Build pairs, fit the bias model, save to `data/model/bias.json`. |
+| `scripts/compare_fairvalue.py` | Checkpoint-3 demo: read-only fetch of live Kalshi temp markets, compute fair value, print side-by-side. |
+| `tests/test_daily_high.py`, `tests/test_bias.py`, `tests/test_fairvalue.py` | Synthetic-input unit tests with known answers. |
 
-### `observations.py` — key functions
-- `fetch_cli(client, station, start, end) -> list[dict]` — GET IEM `cli.py`.
-- `normalize_cli_records(raw, station_id) -> list[ObsRow]` — extract
-  `(station_id, date, observed_high_f, high_time, source, retrieved_at)`; drop
-  records with a missing/null high.
-- `ingest_observations(stations, start, end, out_path) -> IngestResult` —
-  loop stations, write one combined Parquet table.
+### Data shapes
+- **Bias model** — `data/model/bias.json`: per `(station_id, season)` →
+  `{a, b, n_pairs, rmse}`.
+- **`fairvalue` output** — `dict[Bucket, float]`; a `Bucket` is `(low, high)`
+  with `None` for an open end (handles Kalshi's `>X°` threshold markets and
+  range buckets alike).
 
-### Output — `data/observations/observed_highs.parquet`
+### Key design choices
+- **Bias model:** per-station, per-season (4 meteorological seasons) ordinary
+  least-squares `observed ≈ a + b·raw_member_mean`; applied to every member.
+  Simple and interpretable, per the brief.
+- **Known simplification (flagged for Phase 6):** the bias fit is *not*
+  conditioned on lead time. The ensemble spread covers lead-dependent
+  uncertainty; Phase 6 calibration will reveal whether a lead term is needed.
+- **New Orleans (KMSY):** only ~3.5 years of observations (Phase 2 gap). Its
+  per-season fits will rest on fewer pairs — `bias.json` records `n_pairs` so
+  thin fits are visible.
 
-| column | type | notes |
-|---|---|---|
-| `station_id` | str | config station id |
-| `date` | date | local climate date |
-| `observed_high_f` | float | CLI daily high, °F |
-| `high_time` | str | time the high was recorded (diagnostic) |
-| `source` | str | `"IEM-CLI"` |
-| `retrieved_at` | datetime (UTC) | fetch timestamp |
-
-### CLI
-```
-python scripts/ingest_observations.py [--stations KNYC,...] [--start 2019-01-01] [--end today]
-python scripts/fetch_kalshi_rules.py     # per-city settlement station + config mismatch report
-```
-
-### The resolution reconciliation (core of Checkpoint 2)
-For each of the 20 cities, `fetch_kalshi_rules.py` extracts the exact settlement
-station from the live Kalshi market. We then:
-1. Fill `resolution_station` + `resolution_notes` in `config.yaml`.
-2. Confirm the CLI station id queried at IEM matches it.
-3. Flag any city where Kalshi's station differs from the airport our Phase-1
-   GEFS coordinates point at (e.g. if Kalshi Chicago settles somewhere other
-   than Midway) — and correct the config coords so GEFS samples the right place.
-
-### Tests (offline)
-- CLI JSON parsing from a fixture.
-- Records with null/missing `high` are dropped.
-- Date parsing / °F handling.
-- Config station-mismatch detection logic.
+### Unit tests (synthetic, known-answer)
+- `daily_high`: a crafted ensemble where the per-member maxima are known;
+  correct local-day windowing incl. the DST/LST offset.
+- `bias`: fit on synthetic pairs with a known `a, b`; recover them.
+- `fairvalue`: 31 members all = 70 °F → P≈1 in the bucket containing 70;
+  Gaussian-distributed members → bucket probabilities match the Gaussian CDF;
+  probabilities over a partition sum to ~1.
 
 ### Definition of done
-`python scripts/ingest_observations.py` produces `observed_highs.parquet` with
-`(station, date, observed_high)` rows for all 20 stations; `config.yaml`
-resolution fields populated; assumptions documented in `README.md`.
+`fairvalue` produces a normalized probability vector for real buckets from a
+real ensemble slice; `compare_fairvalue.py` shows fair value beside live Kalshi
+prices for a few cities.
 
-### Open question for the human (Checkpoint 2)
-- **History depth.** Default backfill start is **2019-01-01** (~7 years).
-  Observations are tiny (JSON/text), so depth is cheap; the real constraint on
-  bias correction is GEFS reforecast availability (a Phase 3 concern). Easy to
-  change via `--start`.
+### Open questions — RESOLVED
+1. ~~Backfill scope~~ → 1 year weekly (~52 runs). See Decisions at top.
+2. ~~Distribution~~ → Gaussian fit. See Decisions at top.
 
-### Not in Phase 2
-No bias correction, no GEFS pairing, no fair value (Phase 3). No Kalshi
-order-book logging (Phase 4).
+### Not in Phase 3
+No Kalshi order-book logging (Phase 4), no backtest P&L (Phase 5), no
+calibration harness (Phase 6).
 
 ---
 
 ## Phase log
+
+### Phase 3 — built & verified (2026-05-21)
+
+**Decisions:** 1-year weekly GEFS backfill; Gaussian distribution.
+
+- `src/model/daily_high.py`: local-standard-day windowing → per-member highs.
+- `src/model/bias.py`: training-pair builder, per-station/per-season OLS, apply.
+- `src/model/fairvalue.py`: Gaussian fit → bucket probabilities (pure function).
+- `scripts/backfill_gefs.py`, `fit_bias.py`, `compare_fairvalue.py`.
+- `tests/test_daily_high.py`, `test_bias.py`, `test_fairvalue.py`: 23 new tests.
+- **Verified:** `pytest` → 51 passed. Backfill ingested 53 GEFS runs (110 min,
+  0 failed). `fit_bias` → 7,076 pairs, all 80 station-season cells got
+  own-season fits, mean RMSE 3.67 °F. `compare_fairvalue` → plausible
+  bias-corrected highs (e.g. Phoenix 96.6 °F, NYC 65.2 °F for 2026-05-22).
+- **Kalshi quotes:** live quotes come from the **orderbook endpoint**, not the
+  markets-list summary (which never populates `yes_bid`/`yes_ask`). With that
+  fixed, `compare_fairvalue` shows real prices — spreads are tight (~1-3¢) and
+  there are real fair-value disagreements. This shapes Phase 4 (log orderbooks).
+- **Known issues (for Phase 6 calibration to judge):** (1) low-variance
+  summer/coastal cells (Houston/Miami/SF JJA) have ill-conditioned regression
+  slopes — fine inside the training range, risky to extrapolate; (2) ensemble
+  dispersion vs. the market needs checking — at +1 day NYC our σ≈3.7 °F looks
+  wider than the market implies, while Miami σ≈0.8 °F looks tight.
 
 ### Phase 2 — built & verified (2026-05-21)
 
@@ -137,8 +149,8 @@ settlement source); GHCN-Daily dropped; backfill from 2019-01-01.
   reconcile with Kalshi CLI sites. `ingest_observations.py` → 52,506 rows
   (20 stations, 2019-01-01 → 2026-05-21), 0.34 MB Parquet.
 - **Known data gap:** New Orleans (KMSY) CLI archive in IEM only starts
-  2022-10-01 (~1,326 days) vs ~2,690 days for the others — fewer years for bias
-  correction. Flagged for Phase 3.
+  2022-10-01 (~1,326 days) vs ~2,690 days for the others.
+- Committed `5e170b0`, pushed to GitHub.
 
 ### Phase 1 — built & verified (2026-05-21)
 
@@ -150,8 +162,7 @@ step}` mapping); grid resolution 0.5° `pgrb2a`.
   `--latest` run probe.
 - `src/common/storage.py`: Parquet path + write helpers.
 - `scripts/ingest_gefs.py`: CLI (`--latest` / `--date`+`--cycle`, subset flags).
-- `config.yaml`: `gefs.forecast_hours` → `{start:3, stop:168, step:3}`; loader
-  expands it and still accepts a plain list.
+- `config.yaml`: `gefs.forecast_hours` → `{start:3, stop:168, step:3}`.
 - `tests/test_gefs.py` (+ `tests/fixtures/sample.idx`): 14 offline unit tests.
 - **Verified:** `pytest` → 20 passed. Live run pulled GEFS 2026-05-21 12Z —
   1736/1736 member-files, 34,720 rows (20×31×56), 0.26 MB Parquet, 93 s.
@@ -163,9 +174,9 @@ step}` mapping); grid resolution 0.5° `pgrb2a`.
 **Decisions:** 20 cities; `config.yaml` committed directly to git; proposed
 config field set sufficient.
 
-- Repo skeleton: `pyproject.toml`, `.gitignore`, `config.yaml` (20 stations,
-  resolution fields blank), `src/common/config.py` (typed validated loader),
-  `scripts/hello.py`, `tests/test_smoke.py`, `README.md`.
+- Repo skeleton: `pyproject.toml`, `.gitignore`, `config.yaml`,
+  `src/common/config.py` (typed validated loader), `scripts/hello.py`,
+  `tests/test_smoke.py`, `README.md`.
 - `uv` env on CPython 3.11.0; deps installed incl. cfgrib/xarray.
 - **Verified:** `pytest` → 6 passed; `hello.py` prints all 20 stations.
 - Committed `4a8c653`; GitHub repo created (public) and pushed.

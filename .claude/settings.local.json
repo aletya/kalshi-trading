@@ -26,7 +26,10 @@
       "Bash(curl -s \"https://api.elections.kalshi.com/trade-api/v2/series/?category=Climate+and+Weather\")",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" \"https://api.elections.kalshi.com/trade-api/v2/series?category=Climate+and+Weather\")",
       "Bash(curl -s \"https://api.elections.kalshi.com/trade-api/v2/series?category=Climate+and+Weather\")",
-      "Bash(.venv/bin/python scripts/fetch_kalshi_rules.py)"
+      "Bash(.venv/bin/python scripts/fetch_kalshi_rules.py)",
+      "Bash(.venv/bin/python scripts/compare_fairvalue.py --cities KNYC,KPHX)",
+      "Bash(.venv/bin/python scripts/compare_fairvalue.py)",
+      "Bash(.venv/bin/python scripts/compare_fairvalue.py --cities KNYC,KMDW,KPHX)"
     ]
   }
 }

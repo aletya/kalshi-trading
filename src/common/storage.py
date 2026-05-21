@@ -26,6 +26,17 @@ def observations_path(observations_dir: Path) -> Path:
     return observations_dir / "observed_highs.parquet"
 
 
+def bias_model_path(data_dir: Path) -> Path:
+    """JSON path for the fitted per-station/per-season bias model."""
+    return data_dir / "model" / "bias.json"
+
+
+def latest_ensemble_parquet(ensemble_dir: Path) -> Path | None:
+    """Most recent GEFS run Parquet on disk, by (init date, cycle); None if empty."""
+    files = sorted(ensemble_dir.glob("*/gefs_*.parquet"), key=lambda p: p.stem)
+    return files[-1] if files else None
+
+
 def write_parquet(rows: list[dict], path: Path) -> int:
     """Write rows (a list of dicts) to a Parquet file, creating parent dirs.
 
