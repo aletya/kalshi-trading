@@ -31,7 +31,8 @@
       "Bash(.venv/bin/python scripts/compare_fairvalue.py)",
       "Bash(.venv/bin/python scripts/compare_fairvalue.py --cities KNYC,KMDW,KPHX)",
       "Bash(.venv/bin/python scripts/log_kalshi.py)",
-      "Bash(launchctl list *)"
+      "Bash(launchctl list *)",
+      "Bash(.venv/bin/python scripts/run_backtest.py)"
     ]
   }
 }
