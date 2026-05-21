@@ -29,7 +29,9 @@
       "Bash(.venv/bin/python scripts/fetch_kalshi_rules.py)",
       "Bash(.venv/bin/python scripts/compare_fairvalue.py --cities KNYC,KPHX)",
       "Bash(.venv/bin/python scripts/compare_fairvalue.py)",
-      "Bash(.venv/bin/python scripts/compare_fairvalue.py --cities KNYC,KMDW,KPHX)"
+      "Bash(.venv/bin/python scripts/compare_fairvalue.py --cities KNYC,KMDW,KPHX)",
+      "Bash(.venv/bin/python scripts/log_kalshi.py)",
+      "Bash(launchctl list *)"
     ]
   }
 }

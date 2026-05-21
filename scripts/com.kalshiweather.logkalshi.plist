@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  launchd agent: run the Kalshi order-book logger every 15 minutes.
+  Install:   cp this file to ~/Library/LaunchAgents/ and `launchctl load -w` it.
+  See README.md "Scheduling the order-book logger" for full instructions.
+  Paths are absolute and specific to this machine.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.kalshiweather.logkalshi</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/alexyang/Desktop/kalshi trading/.venv/bin/python</string>
+        <string>/Users/alexyang/Desktop/kalshi trading/scripts/log_kalshi.py</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/alexyang/Desktop/kalshi trading</string>
+    <key>StartInterval</key>
+    <integer>900</integer>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/Users/alexyang/Desktop/kalshi trading/data/log_kalshi.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/alexyang/Desktop/kalshi trading/data/log_kalshi.err.log</string>
+</dict>
+</plist>

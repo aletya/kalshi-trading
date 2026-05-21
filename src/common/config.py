@@ -36,6 +36,7 @@ class Station:
     latitude: float
     longitude: float
     timezone: str
+    kalshi_series: str = ""
     resolution_station: str = ""
     resolution_notes: str = ""
 
@@ -57,7 +58,6 @@ class GefsConfig:
 @dataclass(frozen=True)
 class KalshiConfig:
     api_base: str
-    market_series: tuple[str, ...]
     poll_interval_minutes: int
 
 
@@ -145,6 +145,7 @@ def _parse_station(raw: dict, index: int) -> Station:
         latitude=lat,
         longitude=lon,
         timezone=str(_require(raw, "timezone", ctx)),
+        kalshi_series=str(raw.get("kalshi_series", "") or ""),
         resolution_station=str(raw.get("resolution_station", "") or ""),
         resolution_notes=str(raw.get("resolution_notes", "") or ""),
     )
@@ -189,7 +190,6 @@ def load_config(path: str | Path | None = None) -> Config:
     k = _require(raw, "kalshi", "config")
     kalshi = KalshiConfig(
         api_base=str(_require(k, "api_base", "kalshi")),
-        market_series=tuple(str(m) for m in k.get("market_series", []) or []),
         poll_interval_minutes=int(_require(k, "poll_interval_minutes", "kalshi")),
     )
 

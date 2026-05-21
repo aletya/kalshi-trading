@@ -11,9 +11,10 @@ phase plan, and ground rules; [`PLAN.md`](PLAN.md) tracks the current phase.
 
 ## Current status
 
-**Phase 3 — fair-value engine complete.** GEFS ingestion, observations
-ingestion, and the bias-corrected fair-value model all work. No backtester,
-calibration harness, or Kalshi order-book logging yet — those are Phases 4–7.
+**Phase 4 — Kalshi order-book logging complete.** GEFS ingestion, observations
+ingestion, the bias-corrected fair-value model, and the scheduled Kalshi
+order-book logger all work. No backtester or calibration harness yet — those
+are Phases 5–6; paper trading is Phase 7.
 
 Data pipeline so far (each reproducible from one command):
 
@@ -21,10 +22,35 @@ Data pipeline so far (each reproducible from one command):
 python scripts/ingest_gefs.py --latest           # GEFS ensemble -> data/ensemble/
 python scripts/ingest_observations.py             # observed highs -> data/observations/
 python scripts/fetch_kalshi_rules.py              # re-verify Kalshi resolution rules
+python scripts/discover_kalshi_series.py           # re-verify active Kalshi series
 python scripts/backfill_gefs.py                   # 1yr GEFS history (bias training set)
 python scripts/fit_bias.py                        # fit per-station/season bias model
 python scripts/compare_fairvalue.py               # fair value vs. live Kalshi markets
+python scripts/log_kalshi.py                       # one order-book snapshot pass
 ```
+
+## Scheduling the order-book logger
+
+`scripts/log_kalshi.py` does one polling pass (snapshots every temperature
+market's order book into `data/kalshi.db`) and exits. A macOS **launchd** agent
+runs it every 15 minutes so history accumulates for the Phase 5 backtest.
+
+```sh
+# install / start
+cp scripts/com.kalshiweather.logkalshi.plist ~/Library/LaunchAgents/
+launchctl load -w ~/Library/LaunchAgents/com.kalshiweather.logkalshi.plist
+
+launchctl list | grep kalshiweather      # check it is registered
+tail -f data/log_kalshi.out.log          # watch pass output
+
+# stop / remove
+launchctl unload -w ~/Library/LaunchAgents/com.kalshiweather.logkalshi.plist
+```
+
+`kalshi.db` holds two tables: `markets` (one row per market) and
+`orderbook_snapshots` (one row per market per poll — best bid/ask, sizes,
+`mid`, `spread`, and the full raw order book as JSON). At ~15-minute polling it
+grows roughly ~1 GB/month; prune old `raw_orderbook` blobs if it gets large.
 
 ## Requirements
 
