@@ -1,0 +1,23 @@
+# Local data store — never commit (raw GRIB, Parquet slices, SQLite db).
+# Subdirectories are created at runtime by the storage layer.
+data/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

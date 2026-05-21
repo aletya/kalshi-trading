@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv pip *)",
+      "Bash(.venv/bin/python -m pytest -q)",
+      "Bash(.venv/bin/python scripts/hello.py)",
+      "Bash(git config *)",
+      "Bash(git add *)",
+      "Bash(git commit -q -m ' *)"
+    ]
+  }
+}
