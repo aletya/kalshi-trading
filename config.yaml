@@ -206,7 +206,14 @@ gefs:
   s3_bucket: noaa-gefs-pds        # NOAA Open Data bucket (anonymous access)
   model_runs: ["00", "06", "12", "18"]   # forecast cycles (UTC) to pull
   members: 31                     # ensemble size (1 control + 30 perturbed)
-  forecast_hours: [24, 48, 72, 96, 120]  # lead times (hours) to extract
+  # Lead times (hours) to extract. Expanded by the config loader into a
+  # 3-hourly sequence: 3, 6, 9, ... 168 (7 days). A daily HIGH is the max temp
+  # across the local day, so we need the full sub-daily trace per member, not
+  # one snapshot. (A plain list is also accepted here.)
+  forecast_hours:
+    start: 3
+    stop: 168
+    step: 3
   variable: "2t"                  # 2-metre temperature
 
 # -----------------------------------------------------------------------------

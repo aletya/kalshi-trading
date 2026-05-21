@@ -6,7 +6,15 @@
       "Bash(.venv/bin/python scripts/hello.py)",
       "Bash(git config *)",
       "Bash(git add *)",
-      "Bash(git commit -q -m ' *)"
+      "Bash(git commit -q -m ' *)",
+      "Bash(gh repo *)",
+      "Bash(.venv/bin/python scripts/ingest_gefs.py --latest --stations KNYC,KMDW --forecast-hours 24,48 --members 3)",
+      "Bash(.venv/bin/python -c ' *)",
+      "Bash(.venv/bin/python scripts/ingest_gefs.py --latest)",
+      "Bash(echo \"exit=$?\")",
+      "Bash(cat /tmp/gefs_full_ingest.log)",
+      "Read(//private/tmp/**)",
+      "Bash(git push *)"
     ]
   }
 }

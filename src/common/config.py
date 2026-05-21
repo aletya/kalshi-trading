@@ -106,6 +106,30 @@ def _resolve(path_str: str) -> Path:
     return p if p.is_absolute() else (REPO_ROOT / p)
 
 
+def _parse_forecast_hours(value) -> tuple[int, ...]:
+    """Accept either an explicit list of hours or a {start, stop, step} mapping.
+
+    The mapping form is expanded inclusively, e.g. {3, 168, 3} -> (3, 6, ..., 168).
+    """
+    if isinstance(value, dict):
+        for key in ("start", "stop", "step"):
+            if key not in value:
+                raise ConfigError(f"gefs.forecast_hours mapping missing key {key!r}.")
+        start, stop, step = int(value["start"]), int(value["stop"]), int(value["step"])
+        if step <= 0:
+            raise ConfigError("gefs.forecast_hours.step must be positive.")
+        if stop < start:
+            raise ConfigError("gefs.forecast_hours.stop must be >= start.")
+        return tuple(range(start, stop + 1, step))
+    if isinstance(value, (list, tuple)):
+        if not value:
+            raise ConfigError("gefs.forecast_hours list must not be empty.")
+        return tuple(int(h) for h in value)
+    raise ConfigError(
+        "gefs.forecast_hours must be a list or a {start, stop, step} mapping."
+    )
+
+
 def _parse_station(raw: dict, index: int) -> Station:
     ctx = f"stations[{index}]"
     lat = float(_require(raw, "latitude", ctx))
@@ -158,7 +182,7 @@ def load_config(path: str | Path | None = None) -> Config:
         s3_bucket=str(_require(g, "s3_bucket", "gefs")),
         model_runs=tuple(str(r) for r in _require(g, "model_runs", "gefs")),
         members=int(_require(g, "members", "gefs")),
-        forecast_hours=tuple(int(h) for h in _require(g, "forecast_hours", "gefs")),
+        forecast_hours=_parse_forecast_hours(_require(g, "forecast_hours", "gefs")),
         variable=str(_require(g, "variable", "gefs")),
     )
 
