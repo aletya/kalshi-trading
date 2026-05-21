@@ -14,7 +14,19 @@
       "Bash(echo \"exit=$?\")",
       "Bash(cat /tmp/gefs_full_ingest.log)",
       "Read(//private/tmp/**)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "WebSearch",
+      "WebFetch(domain:api.elections.kalshi.com)",
+      "WebFetch(domain:kalshi-public-docs.s3.amazonaws.com)",
+      "WebFetch(domain:help.kalshi.com)",
+      "WebFetch(domain:mesonet.agron.iastate.edu)",
+      "Bash(curl -s \"https://mesonet.agron.iastate.edu/json/cli.py?station=KNYC&fmt=json\")",
+      "Bash(.venv/bin/python -c \"import sys,json; d=json.load\\(sys.stdin\\); r=d.get\\('results',[]\\); print\\('keys:',list\\(d.keys\\(\\)\\)\\); print\\('n results:',len\\(r\\)\\); print\\('first record:',json.dumps\\(r[0],indent=1\\) if r else 'none'\\)\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" \"https://api.elections.kalshi.com/trade-api/v2/series/?category=Climate+and+Weather\")",
+      "Bash(curl -s \"https://api.elections.kalshi.com/trade-api/v2/series/?category=Climate+and+Weather\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" \"https://api.elections.kalshi.com/trade-api/v2/series?category=Climate+and+Weather\")",
+      "Bash(curl -s \"https://api.elections.kalshi.com/trade-api/v2/series?category=Climate+and+Weather\")",
+      "Bash(.venv/bin/python scripts/fetch_kalshi_rules.py)"
     ]
   }
 }

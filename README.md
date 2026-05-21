@@ -11,9 +11,17 @@ phase plan, and ground rules; [`PLAN.md`](PLAN.md) tracks the current phase.
 
 ## Current status
 
-**Phase 0 — project skeleton & environment.** The repo is a runnable skeleton:
-config layer, dependency manifest, tests, and a smoke script. No GEFS, Kalshi,
-or model code yet — those arrive phase by phase.
+**Phase 2 — observations ingestion complete.** GEFS ensemble ingestion (Phase 1)
+and observed-daily-high ingestion (Phase 2) both work. No fair-value model,
+backtester, or Kalshi order-book logging yet — those are Phases 3–7.
+
+Data pipeline so far (each reproducible from one command):
+
+```sh
+python scripts/ingest_gefs.py --latest          # GEFS ensemble -> data/ensemble/
+python scripts/ingest_observations.py            # observed highs -> data/observations/
+python scripts/fetch_kalshi_rules.py             # re-verify Kalshi resolution rules
+```
 
 ## Requirements
 
@@ -66,18 +74,34 @@ ingestion settings, Kalshi API settings, strategy thresholds, and storage
 paths. Nothing is hardcoded in code. The file is committed to git (it holds no
 secrets). Load it via `src.common.config.load_config()`.
 
-### A note on resolution rules (important)
-
-Each station in `config.yaml` carries `resolution_station` and
-`resolution_notes` fields that are **intentionally blank in Phase 0**. The
-`id`/`latitude`/`longitude` values are best-known placeholders — good enough to
-find a nearby GEFS grid point, but **not** confirmed to match how Kalshi
-actually settles each market.
+### Resolution rules (verified in Phase 2)
 
 Resolution-rule mismatch (wrong NWS station, wrong observation window, wrong
 rounding or day-cutoff) is the **#1 source of fake trading edges**. Phase 2
-reads Kalshi's actual contract rules, fills in these fields, and documents every
-assumption here. Until then, treat station identity as unverified.
+verified every station against Kalshi's *live* contract `settlement_sources`.
+
+**How Kalshi settles temperature markets** (confirmed from live `KXHIGH*`
+markets, 2026-05-21):
+
+- Markets settle on the **NWS Climatological Report (Daily)** — the "CLI"
+  product — for a single named station. Not weather apps, not raw METARs.
+- The CLI daily high is a **whole °F** integer.
+- The CLI "day" runs **local midnight-to-midnight standard time** (during
+  Daylight Saving Time, 1:00 AM–12:59 AM the next day).
+- Each `config.yaml` station's `id` is the NWS CLI station code (`K` + Kalshi's
+  `issuedby` code); `resolution_station` / `resolution_notes` record the
+  verified settlement source. Re-verify any time with
+  `python scripts/fetch_kalshi_rules.py`.
+
+**Correction made:** Kalshi settles **Houston on Hobby Airport (KHOU)**, not
+Bush Intercontinental (KIAH). The Phase-1 config had Bush; Phase 2 corrected the
+station id and coordinates so GEFS forecasts the station the market settles on.
+
+**Observed highs** are ingested from the same CLI product, via the Iowa
+Environmental Mesonet (IEM) CLI archive. By using the CLI `high` directly we
+inherit Kalshi's exact day-window definition rather than reconstructing it from
+hourly data. Note: Kalshi's own rules warn that *preliminary* CLI values can be
+revised — a caveat the backtester and paper-trader must respect.
 
 ## Repository layout
 

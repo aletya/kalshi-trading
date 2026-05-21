@@ -1,0 +1,19 @@
+{
+  "results": [
+    {"station": "KNYC", "valid": "2025-07-01", "name": "NEW YORK CITY",
+     "product": "202507020600-KOKX-CDUS41-CLINYC", "high": 88,
+     "high_time": "0245 PM", "low": 70, "low_time": "0512 AM"},
+    {"station": "KNYC", "valid": "2025-07-02", "name": "NEW YORK CITY",
+     "product": "202507030600-KOKX-CDUS41-CLINYC", "high": 91,
+     "high_time": "0312 PM", "low": 72, "low_time": "0455 AM"},
+    {"station": "KNYC", "valid": "2025-07-03", "name": "NEW YORK CITY",
+     "product": "202507040600-KOKX-CDUS41-CLINYC", "high": "M",
+     "high_time": null, "low": "M", "low_time": null},
+    {"station": "KNYC", "valid": "2025-07-04", "name": "NEW YORK CITY",
+     "product": "202507050600-KOKX-CDUS41-CLINYC", "high": null,
+     "high_time": null, "low": 68},
+    {"station": "KNYC", "valid": null, "name": "NEW YORK CITY",
+     "product": "bad-record", "high": 80}
+  ],
+  "generated_at": "2026-05-21T00:00:00Z"
+}

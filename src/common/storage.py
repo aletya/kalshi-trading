@@ -21,6 +21,11 @@ def ensemble_run_path(ensemble_dir: Path, init_date: dt.date, cycle: str) -> Pat
     return ensemble_dir / day / f"gefs_{day}_{cycle}z.parquet"
 
 
+def observations_path(observations_dir: Path) -> Path:
+    """Parquet path for the combined observed-daily-high table (all stations)."""
+    return observations_dir / "observed_highs.parquet"
+
+
 def write_parquet(rows: list[dict], path: Path) -> int:
     """Write rows (a list of dicts) to a Parquet file, creating parent dirs.
 

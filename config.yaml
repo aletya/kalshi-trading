@@ -8,15 +8,13 @@
 # -----------------------------------------------------------------------------
 # stations: the weather stations we forecast & trade.
 #
-# IMPORTANT: `id`, `latitude`, `longitude` below are best-known PLACEHOLDERS for
-# each city's primary airport/observation site. They are good enough to extract
-# a nearest GEFS grid point in Phase 1, but they are NOT yet confirmed against
-# Kalshi's contract resolution rules.
-#
-# `resolution_station` and `resolution_notes` are intentionally BLANK. They are
-# filled in and verified in Phase 2 by reading Kalshi's actual settlement rules
-# (which exact NWS station, observation window, rounding, day-cutoff). Resolution
-# mismatch is the #1 source of fake edges — do not assume, verify.
+# RESOLUTION VERIFIED (Phase 2, 2026-05-21): `resolution_station` /
+# `resolution_notes` were filled in by reading each city's live Kalshi contract
+# `settlement_sources`. Kalshi settles every temperature market on the NWS
+# Climatological Report (Daily) — the "CLI" product — for the named station.
+# Each `id` below is the NWS CLI station code (K + the Kalshi `issuedby` code),
+# and the lat/lon point at that exact station so GEFS samples the right place.
+# Re-verify any time with: python scripts/fetch_kalshi_rules.py
 # -----------------------------------------------------------------------------
 stations:
   - id: KATL
@@ -25,8 +23,8 @@ stations:
     latitude: 33.6367
     longitude: -84.4281
     timezone: America/New_York
-    resolution_station: ""
-    resolution_notes: ""
+    resolution_station: Atlanta Intl Airport (NWS CLI station KATL)
+    resolution_notes: "NWS CLI (Daily) max temp, whole degF; CLI day = local midnight-midnight (1AM-1AM during DST). Kalshi settlement_sources issuedby=ATL, WFO FFC."
 
   - id: KAUS
     name: Austin
@@ -34,8 +32,8 @@ stations:
     latitude: 30.1975
     longitude: -97.6664
     timezone: America/Chicago
-    resolution_station: ""
-    resolution_notes: ""
+    resolution_station: Austin-Bergstrom Intl Airport (NWS CLI station KAUS)
+    resolution_notes: "NWS CLI (Daily) max temp, whole degF; CLI day = local midnight-midnight (1AM-1AM during DST). Kalshi settlement_sources issuedby=AUS, WFO EWX."
 
   - id: KBOS
     name: Boston
@@ -43,8 +41,8 @@ stations:
     latitude: 42.3606
     longitude: -71.0097
     timezone: America/New_York
-    resolution_station: ""
-    resolution_notes: ""
+    resolution_station: Boston Logan Intl Airport (NWS CLI station KBOS)
+    resolution_notes: "NWS CLI (Daily) max temp, whole degF; CLI day = local midnight-midnight (1AM-1AM during DST). Kalshi settlement_sources issuedby=BOS, WFO BOX."
 
   - id: KMDW
     name: Chicago
@@ -52,8 +50,8 @@ stations:
     latitude: 41.7860
     longitude: -87.7524
     timezone: America/Chicago
-    resolution_station: ""
-    resolution_notes: ""
+    resolution_station: Chicago Midway Airport (NWS CLI station KMDW)
+    resolution_notes: "NWS CLI (Daily) max temp, whole degF; CLI day = local midnight-midnight (1AM-1AM during DST). Kalshi settles Chicago on MIDWAY (issuedby=MDW, WFO LOT), not O'Hare."
 
   - id: KDFW
     name: Dallas
@@ -61,8 +59,8 @@ stations:
     latitude: 32.8998
     longitude: -97.0403
     timezone: America/Chicago
-    resolution_station: ""
-    resolution_notes: ""
+    resolution_station: Dallas-Fort Worth Intl Airport (NWS CLI station KDFW)
+    resolution_notes: "NWS CLI (Daily) max temp, whole degF; CLI day = local midnight-midnight (1AM-1AM during DST). Kalshi settlement_sources issuedby=DFW, WFO FWD."
 
   - id: KDEN
     name: Denver
@@ -70,17 +68,17 @@ stations:
     latitude: 39.8617
     longitude: -104.6731
     timezone: America/Denver
-    resolution_station: ""
-    resolution_notes: ""
+    resolution_station: Denver Intl Airport (NWS CLI station KDEN)
+    resolution_notes: "NWS CLI (Daily) max temp, whole degF; CLI day = local midnight-midnight (1AM-1AM during DST). Kalshi settlement_sources issuedby=DEN, WFO BOU."
 
-  - id: KIAH
+  - id: KHOU
     name: Houston
     kalshi_city: Houston
-    latitude: 29.9844
-    longitude: -95.3414
+    latitude: 29.6454
+    longitude: -95.2789
     timezone: America/Chicago
-    resolution_station: ""
-    resolution_notes: ""
+    resolution_station: Houston Hobby Airport (NWS CLI station KHOU)
+    resolution_notes: "NWS CLI (Daily) max temp, whole degF; CLI day = local midnight-midnight (1AM-1AM during DST). CORRECTED in Phase 2: Kalshi settles Houston on HOBBY (issuedby=HOU, WFO HGX), NOT Bush Intercontinental (IAH); station id and coordinates updated from KIAH accordingly."
 
   - id: KLAS
     name: Las Vegas
@@ -88,8 +86,8 @@ stations:
     latitude: 36.0840
     longitude: -115.1537
     timezone: America/Los_Angeles
-    resolution_station: ""
-    resolution_notes: ""
+    resolution_station: Las Vegas Harry Reid Intl Airport (NWS CLI station KLAS)
+    resolution_notes: "NWS CLI (Daily) max temp, whole degF; CLI day = local midnight-midnight (1AM-1AM during DST). Kalshi settlement_sources issuedby=LAS, WFO VEF."
 
   - id: KLAX
     name: Los Angeles
@@ -97,8 +95,8 @@ stations:
     latitude: 33.9416
     longitude: -118.4085
     timezone: America/Los_Angeles
-    resolution_station: ""
-    resolution_notes: ""
+    resolution_station: Los Angeles Intl Airport (NWS CLI station KLAX)
+    resolution_notes: "NWS CLI (Daily) max temp, whole degF; CLI day = local midnight-midnight (1AM-1AM during DST). Kalshi settlement_sources issuedby=LAX, WFO LOX."
 
   - id: KMIA
     name: Miami
@@ -106,8 +104,8 @@ stations:
     latitude: 25.7959
     longitude: -80.2870
     timezone: America/New_York
-    resolution_station: ""
-    resolution_notes: ""
+    resolution_station: Miami Intl Airport (NWS CLI station KMIA)
+    resolution_notes: "NWS CLI (Daily) max temp, whole degF; CLI day = local midnight-midnight (1AM-1AM during DST). Kalshi settlement_sources issuedby=MIA, WFO MFL."
 
   - id: KMSP
     name: Minneapolis
@@ -115,8 +113,8 @@ stations:
     latitude: 44.8848
     longitude: -93.2223
     timezone: America/Chicago
-    resolution_station: ""
-    resolution_notes: ""
+    resolution_station: Minneapolis-St Paul Intl Airport (NWS CLI station KMSP)
+    resolution_notes: "NWS CLI (Daily) max temp, whole degF; CLI day = local midnight-midnight (1AM-1AM during DST). Kalshi settlement_sources issuedby=MSP, WFO MPX."
 
   - id: KNYC
     name: New York City
@@ -124,8 +122,8 @@ stations:
     latitude: 40.7790
     longitude: -73.9693
     timezone: America/New_York
-    resolution_station: ""
-    resolution_notes: ""
+    resolution_station: New York Central Park (NWS CLI station KNYC)
+    resolution_notes: "NWS CLI (Daily) max temp, whole degF; CLI day = local midnight-midnight (1AM-1AM during DST). Kalshi settles NYC on CENTRAL PARK (issuedby=NYC, WFO OKX), not an airport."
 
   - id: KOKC
     name: Oklahoma City
@@ -133,8 +131,8 @@ stations:
     latitude: 35.3931
     longitude: -97.6007
     timezone: America/Chicago
-    resolution_station: ""
-    resolution_notes: ""
+    resolution_station: Oklahoma City Will Rogers Airport (NWS CLI station KOKC)
+    resolution_notes: "NWS CLI (Daily) max temp, whole degF; CLI day = local midnight-midnight (1AM-1AM during DST). Kalshi settlement_sources issuedby=OKC, WFO OUN."
 
   - id: KPHL
     name: Philadelphia
@@ -142,8 +140,8 @@ stations:
     latitude: 39.8729
     longitude: -75.2437
     timezone: America/New_York
-    resolution_station: ""
-    resolution_notes: ""
+    resolution_station: Philadelphia Intl Airport (NWS CLI station KPHL)
+    resolution_notes: "NWS CLI (Daily) max temp, whole degF; CLI day = local midnight-midnight (1AM-1AM during DST). Kalshi settlement_sources issuedby=PHL, WFO PHI."
 
   - id: KSAT
     name: San Antonio
@@ -151,8 +149,8 @@ stations:
     latitude: 29.5337
     longitude: -98.4698
     timezone: America/Chicago
-    resolution_station: ""
-    resolution_notes: ""
+    resolution_station: San Antonio Intl Airport (NWS CLI station KSAT)
+    resolution_notes: "NWS CLI (Daily) max temp, whole degF; CLI day = local midnight-midnight (1AM-1AM during DST). Kalshi settlement_sources issuedby=SAT, WFO EWX."
 
   - id: KSFO
     name: San Francisco
@@ -160,8 +158,8 @@ stations:
     latitude: 37.6213
     longitude: -122.3790
     timezone: America/Los_Angeles
-    resolution_station: ""
-    resolution_notes: ""
+    resolution_station: San Francisco Intl Airport (NWS CLI station KSFO)
+    resolution_notes: "NWS CLI (Daily) max temp, whole degF; CLI day = local midnight-midnight (1AM-1AM during DST). Kalshi settlement_sources issuedby=SFO, WFO MTR."
 
   - id: KSEA
     name: Seattle
@@ -169,8 +167,8 @@ stations:
     latitude: 47.4502
     longitude: -122.3088
     timezone: America/Los_Angeles
-    resolution_station: ""
-    resolution_notes: ""
+    resolution_station: Seattle-Tacoma Intl Airport (NWS CLI station KSEA)
+    resolution_notes: "NWS CLI (Daily) max temp, whole degF; CLI day = local midnight-midnight (1AM-1AM during DST). Kalshi settlement_sources issuedby=SEA, WFO SEW."
 
   - id: KPHX
     name: Phoenix
@@ -178,8 +176,8 @@ stations:
     latitude: 33.4342
     longitude: -112.0116
     timezone: America/Phoenix
-    resolution_station: ""
-    resolution_notes: ""
+    resolution_station: Phoenix Sky Harbor Intl Airport (NWS CLI station KPHX)
+    resolution_notes: "NWS CLI (Daily) max temp, whole degF; CLI day = local midnight-midnight. Arizona does not observe DST, so the CLI day is always local midnight-midnight. Kalshi settlement_sources issuedby=PHX, WFO PSR."
 
   - id: KMSY
     name: New Orleans
@@ -187,8 +185,8 @@ stations:
     latitude: 29.9934
     longitude: -90.2580
     timezone: America/Chicago
-    resolution_station: ""
-    resolution_notes: ""
+    resolution_station: New Orleans Louis Armstrong Intl Airport (NWS CLI station KMSY)
+    resolution_notes: "NWS CLI (Daily) max temp, whole degF; CLI day = local midnight-midnight (1AM-1AM during DST). Kalshi settlement_sources issuedby=MSY, WFO LIX."
 
   - id: KDCA
     name: Washington DC
@@ -196,8 +194,8 @@ stations:
     latitude: 38.8512
     longitude: -77.0402
     timezone: America/New_York
-    resolution_station: ""
-    resolution_notes: ""
+    resolution_station: Washington Reagan National Airport (NWS CLI station KDCA)
+    resolution_notes: "NWS CLI (Daily) max temp, whole degF; CLI day = local midnight-midnight (1AM-1AM during DST). Kalshi settles DC on REAGAN NATIONAL (issuedby=DCA, WFO LWX)."
 
 # -----------------------------------------------------------------------------
 # gefs: NOAA GEFS ensemble ingestion (Phase 1).

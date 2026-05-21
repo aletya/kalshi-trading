@@ -29,10 +29,11 @@ def test_station_coords_in_range():
         assert -180.0 <= s.longitude <= 180.0
 
 
-def test_resolution_unverified_in_phase0():
-    """Resolution stations are intentionally blank until Phase 2 verifies them."""
+def test_resolution_verified_after_phase2():
+    """Phase 2 filled in every station's Kalshi resolution station + notes."""
     config = load_config()
-    assert all(not s.resolution_verified for s in config.stations)
+    assert all(s.resolution_verified for s in config.stations)
+    assert all(s.resolution_notes.strip() for s in config.stations)
 
 
 def test_station_lookup():
