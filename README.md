@@ -11,9 +11,9 @@ phase plan, and ground rules; [`PLAN.md`](PLAN.md) tracks the current phase.
 
 ## Current status
 
-**Phase 5 — backtester complete.** GEFS ingestion, observations ingestion, the
-bias-corrected fair-value model, the scheduled Kalshi order-book logger, and the
-costs-included backtester all work. No calibration harness yet (Phase 6); paper
+**Phase 6 — calibration harness complete.** GEFS ingestion, observations
+ingestion, the bias-corrected fair-value model, the scheduled order-book logger,
+the costs-included backtester, and the calibration harness all work. Paper
 trading is Phase 7.
 
 The backtester needs logged price history *and* resolved outcomes to line up —
@@ -33,6 +33,7 @@ python scripts/fit_bias.py                        # fit per-station/season bias 
 python scripts/compare_fairvalue.py               # fair value vs. live Kalshi markets
 python scripts/log_kalshi.py                       # one order-book snapshot pass
 python scripts/run_backtest.py                     # costs-included P&L backtest
+python scripts/run_calibration.py                  # model calibration report
 ```
 
 ## Scheduling the order-book logger
