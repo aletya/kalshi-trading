@@ -11,10 +11,10 @@ phase plan, and ground rules; [`PLAN.md`](PLAN.md) tracks the current phase.
 
 ## Current status
 
-**Phase 6 — calibration harness complete.** GEFS ingestion, observations
-ingestion, the bias-corrected fair-value model, the scheduled order-book logger,
-the costs-included backtester, and the calibration harness all work. Paper
-trading is Phase 7.
+**Phase 7 — paper trading running.** All seven phases are built. Two launchd
+agents accumulate data unattended: the order-book logger every 15 min and the
+paper-trading loop every 6 h. Re-run `run_backtest.py` and `run_calibration.py`
+as data builds up to track the live verdict.
 
 The backtester needs logged price history *and* resolved outcomes to line up —
 the logger started 2026-05-21, so the first real backtest trades appear once
@@ -34,6 +34,7 @@ python scripts/compare_fairvalue.py               # fair value vs. live Kalshi m
 python scripts/log_kalshi.py                       # one order-book snapshot pass
 python scripts/run_backtest.py                     # costs-included P&L backtest
 python scripts/run_calibration.py                  # model calibration report
+python scripts/paper_trade.py                      # one paper-trading cycle (no real orders)
 ```
 
 ## Scheduling the order-book logger
@@ -43,16 +44,27 @@ market's order book into `data/kalshi.db`) and exits. A macOS **launchd** agent
 runs it every 15 minutes so history accumulates for the Phase 5 backtest.
 
 ```sh
-# install / start
-cp scripts/com.kalshiweather.logkalshi.plist ~/Library/LaunchAgents/
+# install / start (both agents)
+cp scripts/com.kalshiweather.logkalshi.plist  ~/Library/LaunchAgents/
+cp scripts/com.kalshiweather.papertrade.plist ~/Library/LaunchAgents/
 launchctl load -w ~/Library/LaunchAgents/com.kalshiweather.logkalshi.plist
+launchctl load -w ~/Library/LaunchAgents/com.kalshiweather.papertrade.plist
 
-launchctl list | grep kalshiweather      # check it is registered
-tail -f data/log_kalshi.out.log          # watch pass output
+launchctl list | grep kalshiweather       # both should be registered
+tail -f data/log_kalshi.out.log           # watch the order-book logger
+tail -f data/paper_trade.out.log          # watch the paper trader
 
-# stop / remove
+# stop / remove (either)
 launchctl unload -w ~/Library/LaunchAgents/com.kalshiweather.logkalshi.plist
+launchctl unload -w ~/Library/LaunchAgents/com.kalshiweather.papertrade.plist
 ```
+
+The **order-book logger** runs every 15 min and appends snapshots to the
+`markets` and `orderbook_snapshots` tables. The **paper-trading loop** runs
+every 6 h: refresh GEFS + observations → for each currently-tradeable market
+without a position yet, read the latest order book, compute the bias-corrected
+fair value, and record qualifying trades to the `paper_trades` table; settle
+past positions against the observed CLI high. No real orders are placed.
 
 `kalshi.db` holds two tables: `markets` (one row per market) and
 `orderbook_snapshots` (one row per market per poll — best bid/ask, sizes,

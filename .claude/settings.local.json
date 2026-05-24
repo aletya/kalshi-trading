@@ -33,7 +33,11 @@
       "Bash(.venv/bin/python scripts/log_kalshi.py)",
       "Bash(launchctl list *)",
       "Bash(.venv/bin/python scripts/run_backtest.py)",
-      "Bash(.venv/bin/python scripts/run_calibration.py)"
+      "Bash(.venv/bin/python scripts/run_calibration.py)",
+      "Bash(.venv/bin/python scripts/paper_trade.py)",
+      "Bash(cp scripts/com.kalshiweather.papertrade.plist ~/Library/LaunchAgents/)",
+      "Bash(launchctl unload *)",
+      "Bash(launchctl load *)"
     ]
   }
 }

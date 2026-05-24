@@ -8,156 +8,143 @@ full brief.
 
 ## Current status
 
-- **Phase:** 6 — Calibration harness
-- **State:** ✅ Built and verified. 🛑 Awaiting Checkpoint-6 sign-off before
-  starting Phase 7.
+- **Phase:** 7 — Paper trading loop
+- **State:** ✅ Built and verified; launchd agent running every 6 h. 🛑 Awaiting
+  Checkpoint-7 sign-off — the **weeks-long accumulation review** is the real
+  Checkpoint 7 and revisits later.
 
-### Decision on the Phase 6 open question
-- **OOS rigour:** report raw-ensemble calibration (clean, no fitting) +
-  bias-corrected calibration labelled **in-sample**. No time-split run — the
-  genuine out-of-sample verdict is Phase 7 paper trading.
+### Decision on the Phase 7 open question
+- **Cadence:** every 6 hours (a launchd agent), aligned with the GEFS cycles.
 
 ---
 
-## Phase 6 plan — Calibration harness
+## Phase 7 plan — Paper trading loop
 
 ### Goal
-Measure whether the fair-value model is **calibrated**: when it says 30%, does
-the event happen ~30% of the time? Bin predictions by predicted probability,
-compare to realized frequency, and report a reliability table + Brier score.
-Definition of done: a calibration report over the prediction set.
+A scheduled loop that, each cycle, recomputes fair values, checks live Kalshi
+prices, records the hold-to-resolution trades the strategy *would* place into
+SQLite (**no real orders, no Kalshi trading API**), and settles past paper
+positions against the observed high. Definition of done: it runs unattended for
+weeks, accumulating paper trades and a live (out-of-sample) calibration record.
 
-### Why this can run on real data *now*
-Calibration needs `(predicted probability, realized outcome)` pairs — **not**
-Kalshi prices. We already have everything: the 53 backfilled GEFS runs and the
-observed CLI highs. So unlike Phase 5, Phase 6 produces a real result
-immediately.
+### Each cycle (`src/papertrade/runner.py` + `scripts/paper_trade.py`)
+1. **Refresh inputs** — ingest the latest GEFS run if not already on disk;
+   ingest the last ~10 days of observations (cheap; needed to settle).
+2. **Decide new trades** — for every currently-tradeable market with no paper
+   position yet: read its most recent order-book snapshot from `kalshi.db`
+   (the Phase 4 logger keeps it ≤15 min fresh), compute the bias-corrected fair
+   value from the latest GEFS run, and apply the same rule as the backtester
+   (buy YES at the ask / NO at 1−bid when `edge ≥ min_edge`). Record qualifying
+   trades to a new `paper_trades` table. One position per market.
+3. **Settle** — for open paper positions whose target date now has an observed
+   CLI high: settle YES/NO, compute P&L (executed at the entry quote — spread
+   paid) and the mid-to-mid counterfactual, mark `settled`.
+4. **Report** — open/settled counts, settled P&L net of spread, hit rate, and
+   the Brier score of settled trades (the live calibration record).
 
-### The prediction set
-For each backfilled GEFS run × station × target day it covers (lead 0–6 d),
-fit the fair-value Gaussian and emit threshold predictions: for a spread of
-integer-°F thresholds `T` around the forecast (covering ~±2σ so all probability
-levels are exercised), the pair `(P(high > T), 1[observed > T])` with a ±0.5 °F
-continuity correction. This calibrates the forecast CDF — if `P(high > T)` is
-calibrated, so are the Kalshi bucket probabilities (differences of the CDF).
+This reuses the Phase 5 engine (`bucket_from_strike`, `market_outcome`,
+`evaluate_pnl`, the fair-value path) — no logic is duplicated. Entry at the ask
+is consistent with "a limit order at fair value": we only trade when fair value
+already exceeds the ask, so such a limit crosses and fills at the ask.
 
-### Raw vs. bias-corrected (honesty)
-The bias model was fit on these same backfilled runs, so its calibration here
-is **in-sample** (optimistic). We therefore report **two** calibration runs:
-- **Raw ensemble** (no bias correction) — fully independent of any fitting; the
-  clean read on whether the ensemble's *dispersion* is right (the Phase 3
-  concern: under-/over-dispersion).
-- **Bias-corrected** — labelled in-sample; the genuine out-of-sample verdict is
-  Phase 7 paper trading.
-
-(See open question: whether to also add a time-split out-of-sample run.)
+### `paper_trades` table (in `kalshi.db`)
+`id`, `ticker` (UNIQUE — one position/market), `station_id`, `target_date`,
+`strike_type`, `floor_strike`, `cap_strike`, `bucket_label`, `entry_ts`,
+`gefs_init`, `our_prob`, `side`, `entry_yes_bid`, `entry_yes_ask`,
+`entry_price`, `edge`, `status` (`open`/`settled`), `observed_high`, `outcome`,
+`pnl`, `pnl_mid`, `settled_ts`.
 
 ### Files to create
 | File | Purpose |
 |---|---|
-| `src/backtest/calibration.py` | Build predictions, reliability table, Brier score, by-lead breakdown. |
-| `scripts/run_calibration.py` | CLI → reliability table + ASCII reliability diagram + Brier, raw vs. bias-corrected. |
-| `tests/test_calibration.py` | Synthetic known-answer tests. |
+| `src/papertrade/runner.py` | `paper_trades` schema, one decide+settle pass. |
+| `scripts/paper_trade.py` | Cycle entry point (refresh → decide → settle → report). |
+| `scripts/com.kalshiweather.papertrade.plist` | launchd agent. |
+| `tests/test_papertrade.py` | Synthetic tests: record a trade, settle it, P&L. |
 
-### `calibration.py` — key functions
-- `build_predictions(ensemble_dir, observations, stations, bias_model) -> list[Prediction]`
-  — `Prediction(lead_days, predicted_prob, outcome)`.
-- `reliability_table(predictions, n_bins=10) -> list[Bin]` — per decile:
-  `count`, `mean_predicted`, `observed_frequency`.
-- `brier_score(predictions) -> float`.
-- `by_lead(predictions) -> dict[lead → (brier, n)]` — reveals lead-dependent
-  dispersion problems.
-
-### Report contents
-- Reliability table (10 bins): predicted vs. realized frequency, counts.
-- An ASCII reliability diagram (predicted on one axis, realized on the other).
-- Overall Brier score; Brier by lead-time bucket (1-2 d / 3-4 d / 5-7 d).
-- Run twice — raw and bias-corrected — side by side.
-- A plain-English verdict: well calibrated, over-confident (under-dispersed),
-  or under-confident. If poor, the model is the problem — iterate Phase 3.
+### Scheduling
+A launchd agent runs `paper_trade.py` on a cadence (see open question). It runs
+unattended; the Phase 4 order-book logger keeps feeding `kalshi.db` in parallel.
 
 ### Tests (synthetic, known-answer)
-- A perfectly calibrated synthetic set → reliability table on the diagonal,
-  Brier matches the analytic value.
-- A deliberately over-confident set → reliability table bows off the diagonal
-  in the known direction.
-- `reliability_table` bin edges / empty-bin handling.
+- `paper_trades` round-trip on an in-memory db: record an open trade, settle it,
+  verify status/outcome/pnl.
+- A market already holding a position is not re-traded.
+- One decide+settle pass on a synthetic db + GEFS + observations.
+
+### Definition of done
+`paper_trade.py` runs a full cycle (verified once now); the launchd agent then
+accumulates paper trades and settled-trade calibration over the coming weeks.
 
 ### Open question — RESOLVED
-1. ~~Bias-corrected calibration rigour~~ → in-sample (labelled) + raw; no
-   time-split. See Decision at top.
+1. ~~Paper-trader cadence~~ → every 6 hours (launchd). See Decision at top.
 
-### Not in Phase 6
-No live paper trading (Phase 7). No model changes — Phase 6 *measures*; any
-fix to the bias model or ensemble spread is decided at Checkpoint 6.
+### Not in Phase 7 (out of scope, per the brief)
+Real-money execution via Kalshi's trading API. Only worth discussing if Phase 7
+shows a calibrated, costs-included, positive edge sustained over weeks — a
+separate brief.
 
 ---
 
 ## Phase log
 
+### Phase 7 — built & verified (2026-05-22)
+
+**Decision:** paper-trader cadence = every 6 h (launchd).
+
+- `src/papertrade/runner.py`: `paper_trades` schema, decide + settle pass,
+  reuses Phase 5 engine (`decide_trade` factored out of engine for DRY).
+- `scripts/paper_trade.py`: refresh GEFS → refresh obs (merge) → decide →
+  settle → report.
+- Merge-aware `ingest_observations` so re-running for a recent window never
+  destroys the 7-year historical table.
+- launchd agent `com.kalshiweather.papertrade` — every 6 h.
+- `tests/test_papertrade.py`: 5 tests incl. a synthetic decide→settle cycle.
+- **Verified:** `pytest` → 85 passed. First live cycle ingested GEFS
+  2026-05-22 18Z and **opened 75 paper trades** (with 240 markets too late —
+  target day started — and 32 no-edge / 13 one-sided). 0 settled yet.
+- Committed and pushed.
+
 ### Phase 6 — built & verified (2026-05-22)
 
 **Decision:** raw + in-sample bias-corrected calibration; no time-split.
 
-- `src/backtest/calibration.py`: threshold-prediction builder, reliability
-  table, Brier score, calibration slope, by-lead breakdown.
-- `scripts/run_calibration.py`: report + ASCII reliability diagram.
-- `tests/test_calibration.py`: 13 synthetic known-answer tests.
-- **Verified:** `pytest` → 80 passed. Real calibration result over ~57k
-  predictions:
-  - **Raw ensemble:** over-confident / under-dispersed — calibration slope
-    **0.77**, Brier **0.19**. Confirms the Phase 3 concern.
-  - **Bias-corrected (in-sample):** slope **0.88** ("reasonably calibrated"),
-    Brier **0.15** — the bias correction substantially helps. Mild residual
-    over-confidence remains at the extremes.
+- `src/backtest/calibration.py`, `scripts/run_calibration.py`,
+  `tests/test_calibration.py` (13 tests).
+- **Verified:** `pytest` → 80 passed. ~57k predictions: raw ensemble slope
+  **0.77** (over-confident); bias-corrected slope **0.88**, Brier 0.19→0.15
+  (in-sample). Mild residual under-dispersion — proceeding to Phase 7 as-is
+  per checkpoint decision.
+- Committed `da89536`, pushed to GitHub.
 
 ### Phase 5 — built & verified (2026-05-21)
 
-**Decision:** trade entry = first qualifying edge, no lookahead.
-
-- `src/backtest/engine.py`: market↔GEFS↔observations join, first-qualifying-edge
-  walk, settlement, per-contract P&L executed at the quote + mid-to-mid
-  counterfactual.
-- `scripts/run_backtest.py`; `tests/test_engine.py` (11 tests, incl. synthetic
-  end-to-end).
-- **Verified:** `pytest` → 70 passed. `run_backtest` → 0 completed trades yet
-  (222 unresolved, 18 no_decision_window) — expected; logger started today.
-- Committed `4f5892f`, pushed to GitHub.
+- `src/backtest/engine.py`, `scripts/run_backtest.py`, `tests/test_engine.py`
+  (11 tests). First-qualifying-edge, no lookahead, costs included.
+- **Verified:** `pytest` → 70 passed; 0 completed trades yet (logger just
+  started — expected). Committed `4f5892f`.
 
 ### Phase 4 — built & verified (2026-05-21)
 
-**Decisions:** top-of-book + raw-book JSON blob per snapshot; launchd job now.
-
-- `src/ingest/kalshi.py`, `scripts/log_kalshi.py`,
-  `scripts/discover_kalshi_series.py`; `tests/test_kalshi.py` (9 tests).
-- `config.yaml`: `kalshi_series` per station. launchd agent every 15 min.
-- **Verified:** `pytest` → 60 passed; 720 snapshots logged, 0 errors.
-- Committed `7e8b860`, pushed to GitHub.
+- `src/ingest/kalshi.py` + scripts; 9 tests. launchd order-book logger every
+  15 min. 720 snapshots logged, 0 errors. Committed `7e8b860`.
 
 ### Phase 3 — built & verified (2026-05-21)
 
-**Decisions:** 1-year weekly GEFS backfill; Gaussian distribution.
-
-- `src/model/daily_high.py`, `bias.py`, `fairvalue.py`; `scripts/backfill_gefs.py`,
-  `fit_bias.py`, `compare_fairvalue.py`; 23 tests.
-- **Verified:** `pytest` → 51 passed; 53 GEFS runs; 7,076 bias pairs, mean
-  RMSE 3.67 °F.
-- **Known issues (for Phase 6):** ill-conditioned bias slopes on low-variance
-  summer cells; ensemble dispersion vs. the market needs checking.
-- Committed `2a9fe01`, pushed to GitHub.
+- `src/model/daily_high.py`, `bias.py`, `fairvalue.py` + scripts; 23 tests.
+  53 GEFS runs backfilled; bias mean RMSE 3.67 °F. Committed `2a9fe01`.
 
 ### Phase 2 — built & verified (2026-05-21)
 
-- `src/ingest/observations.py` + scripts; 8 tests. `config.yaml` resolution
-  filled; **Houston corrected KIAH → KHOU**. 52,506 observation rows.
-- Committed `5e170b0`, pushed to GitHub.
+- `src/ingest/observations.py` + scripts; 8 tests. Resolution verified;
+  **Houston corrected KIAH → KHOU**. 52,506 observation rows. Committed `5e170b0`.
 
 ### Phase 1 — built & verified (2026-05-21)
 
-- `src/ingest/gefs.py` (`.idx` byte-range, cfgrib) + script; 14 tests.
-  GEFS 2026-05-21 12Z, 34,720 rows. Committed `56d3751`.
+- `src/ingest/gefs.py` + script; 14 tests. cfgrib + ecCodes confirmed.
+  Committed `56d3751`.
 
 ### Phase 0 — built & verified (2026-05-21)
 
-- Repo skeleton, `src/common/config.py`, 6 tests. 20 cities. Committed `4a8c653`;
+- Repo skeleton; `src/common/config.py`; 6 tests. Committed `4a8c653`;
   public GitHub repo created.

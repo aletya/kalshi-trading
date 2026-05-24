@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  launchd agent: run the paper trader every 6 hours (after each GEFS cycle).
+  Install:   cp this file to ~/Library/LaunchAgents/ and `launchctl load -w` it.
+  See README.md "Scheduling" for full instructions.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.kalshiweather.papertrade</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/alexyang/Desktop/kalshi trading/.venv/bin/python</string>
+        <string>/Users/alexyang/Desktop/kalshi trading/scripts/paper_trade.py</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/alexyang/Desktop/kalshi trading</string>
+    <key>StartInterval</key>
+    <integer>21600</integer>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/Users/alexyang/Desktop/kalshi trading/data/paper_trade.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/alexyang/Desktop/kalshi trading/data/paper_trade.err.log</string>
+</dict>
+</plist>

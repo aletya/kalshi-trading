@@ -150,7 +150,18 @@ def ingest_observations(
         )
 
     # Local import keeps storage's polars dependency out of offline unit tests.
+    import polars as pl
+
     from src.common import storage
+
+    # Merge with any existing observations file: new (station, date) rows win
+    # over old ones; everything else (the long historical backfill) is kept.
+    # This makes re-running for a recent window safe — it never destroys history.
+    if out_path.exists():
+        existing = pl.read_parquet(out_path).to_dicts()
+        new_keys = {(r["station_id"], r["date"]) for r in all_rows}
+        kept = [r for r in existing if (r["station_id"], r["date"]) not in new_keys]
+        all_rows = kept + all_rows
 
     written = storage.write_parquet(all_rows, out_path)
     return ObsIngestResult(

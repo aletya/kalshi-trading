@@ -65,6 +65,33 @@ def market_outcome(
     raise ValueError(f"unknown strike_type {strike_type!r}")
 
 
+def decide_trade(
+    prob: float,
+    yes_bid: float,
+    yes_ask: float,
+    min_edge: float,
+    require_gt_spread: bool,
+) -> tuple[str, float] | None:
+    """Decide whether to enter, given a fair-value probability and a quote.
+
+    Buys YES at the ask if ``prob - yes_ask >= min_edge``; buys NO at 1−bid if
+    ``yes_bid - prob >= min_edge``. Edge is reported vs. the mid (the
+    informative number); the actual trade pays the spread by executing at the
+    quote. Returns ``(side, edge)`` or ``None``.
+    """
+    yes_mid = (yes_bid + yes_ask) / 2.0
+    spread = yes_ask - yes_bid
+    if prob - yes_ask >= min_edge:
+        side, edge = "YES", prob - yes_mid
+    elif yes_bid - prob >= min_edge:
+        side, edge = "NO", yes_mid - prob
+    else:
+        return None
+    if require_gt_spread and edge <= spread:
+        return None
+    return side, edge
+
+
 def evaluate_pnl(
     side: str, yes_bid: float, yes_ask: float, outcome: bool
 ) -> tuple[float, float, float]:
@@ -269,19 +296,11 @@ def _first_qualifying_trade(
         evaluated = True
         (mu, sigma), gefs_init = gauss
         prob = bucket_probability(mu, sigma, bucket)
-        yes_mid = (yes_bid + yes_ask) / 2.0
-        spread = yes_ask - yes_bid
 
-        side = None
-        if prob - yes_ask >= min_edge:
-            side, edge = "YES", prob - yes_mid
-        elif yes_bid - prob >= min_edge:
-            side, edge = "NO", yes_mid - prob
-        if side is None:
+        decision = decide_trade(prob, yes_bid, yes_ask, min_edge, require_gt_spread)
+        if decision is None:
             continue
-        if require_gt_spread and edge <= spread:
-            continue
-
+        side, edge = decision
         price_paid, pnl, pnl_mid = evaluate_pnl(side, yes_bid, yes_ask, outcome)
         return Trade(
             ticker=ticker, station_id=station.id, target_date=target_date,
